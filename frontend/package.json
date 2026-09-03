@@ -1,7 +1,7 @@
 {
   "name": "formulaforge-ai-frontend",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Local AI-powered Excel productivity workspace",
@@ -32,8 +32,7 @@
     "productName": "FormulaForge AI",
     "files": [
       "dist/**/*",
-      "electron/**/*",
-      "!node_modules/**/*"
+      "electron/**/*"
     ],
     "extraResources": [
       {
