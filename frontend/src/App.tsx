@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 const API_URL = "http://localhost:8000";
 type Mode = "generate" | "explain" | "fix" | "vba" | "power-query";
@@ -13,6 +13,7 @@ function App() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState("Check for updates");
 
   const resultText = formula || correctedFormula || code || explanation;
   const example =
@@ -25,6 +26,42 @@ function App() {
           : mode === "vba"
             ? "Highlight overdue invoices in red"
             : "Remove blank rows and group sales by region";
+
+  useEffect(() => {
+    return window.formulaForge?.onUpdateStatus((status) => {
+      if (status.state === "available") setUpdateStatus(`Update ${status.version} available`);
+      else if (status.state === "current") setUpdateStatus("You’re up to date");
+      else if (status.state === "downloading") setUpdateStatus(`Downloading ${status.percent ?? 0}%`);
+      else if (status.state === "downloaded") setUpdateStatus("Restart to install update");
+      else if (status.state === "error") setUpdateStatus("Update check failed");
+    });
+  }, []);
+
+  async function checkForUpdates() {
+    if (!window.formulaForge) {
+      setUpdateStatus("Updates available in desktop app");
+      return;
+    }
+    setUpdateStatus("Checking...");
+    const status = await window.formulaForge.checkForUpdates();
+    if (status.state === "available") {
+      setUpdateStatus(`Update ${status.version} available`);
+    } else if (status.state === "current") {
+      setUpdateStatus("You’re up to date");
+    } else if (status.state === "error") {
+      setUpdateStatus("Update check failed");
+    }
+  }
+
+  async function handleUpdateAction() {
+    if (updateStatus.startsWith("Update ")) {
+      await window.formulaForge?.downloadUpdate();
+    } else if (updateStatus === "Restart to install update") {
+      await window.formulaForge?.installUpdate();
+    } else {
+      await checkForUpdates();
+    }
+  }
 
   function clearForm() {
     setPrompt("");
@@ -128,6 +165,9 @@ function App() {
           <div className="sidebar-footer">
             <span className="status-dot" aria-hidden="true" />
             Ollama connected
+            <button type="button" className="update-button" onClick={handleUpdateAction}>
+              ↻ {updateStatus}
+            </button>
           </div>
         </aside>
         <section className="workspace">

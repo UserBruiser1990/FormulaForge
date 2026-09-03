@@ -1,8 +1,10 @@
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const { join } = require("node:path");
 const { execFile, spawn } = require("node:child_process");
+const { autoUpdater } = require("electron-updater");
 
 let backendProcess;
+let mainWindow;
 const OLLAMA_MODEL = "llama3.1:8b";
 
 function backendCommand() {
@@ -86,19 +88,75 @@ async function ensureOllama() {
 }
 
 function createWindow() {
-  const window = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
     minWidth: 900,
     minHeight: 640,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: join(__dirname, "preload.cjs"),
+    },
   });
-  window.loadFile(join(__dirname, "../dist/index.html"));
+  mainWindow.loadFile(join(__dirname, "../dist/index.html"));
 }
+
+function configureUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", (info) => {
+    mainWindow?.webContents.send("update-status", {
+      state: "available",
+      version: info.version,
+    });
+  });
+  autoUpdater.on("update-not-available", (info) => {
+    mainWindow?.webContents.send("update-status", {
+      state: "current",
+      version: info.version,
+    });
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents.send("update-status", {
+      state: "downloading",
+      percent: Math.round(progress.percent),
+    });
+  });
+  autoUpdater.on("update-downloaded", () => {
+    mainWindow?.webContents.send("update-status", { state: "downloaded" });
+  });
+}
+
+ipcMain.handle("check-for-updates", async () => {
+  if (!app.isPackaged) {
+    return { state: "unavailable", message: "Updates are available in the installed app." };
+  }
+
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return {
+      state: result?.updateInfo.version === app.getVersion() ? "current" : "checking",
+      version: result?.updateInfo.version,
+    };
+  } catch (error) {
+    return { state: "error", message: error.message };
+  }
+});
+
+ipcMain.handle("download-update", async () => {
+  await autoUpdater.downloadUpdate();
+  return { state: "downloading" };
+});
+
+ipcMain.handle("install-update", () => {
+  autoUpdater.quitAndInstall();
+});
 
 app.whenReady().then(() => {
   startBackend();
   createWindow();
+  configureUpdater();
   ensureOllama();
 });
 

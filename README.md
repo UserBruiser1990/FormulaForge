@@ -45,3 +45,10 @@ the exact `llama3.1:8b` model is already installed. It skips the download when
 both resources are present. If the model is missing, it asks before downloading
 it; if Ollama is missing, it opens the official download page. Initial setup
 requires an internet connection and approximately 5 GB of model storage.
+
+## Updates
+
+The desktop app checks the public GitHub Releases feed when **Check for updates**
+is clicked. If a newer release is found, the app downloads it and offers a
+restart to install. Releases must be created with matching macOS and Windows
+installer assets. The browser development build does not perform update checks.
