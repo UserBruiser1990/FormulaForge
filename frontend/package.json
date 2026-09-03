@@ -1,7 +1,7 @@
 {
   "name": "formulaforge-ai-frontend",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Local AI-powered Excel productivity workspace",
@@ -47,11 +47,13 @@
     "publish": {
       "provider": "github",
       "owner": "UserBruiser1990",
-      "repo": "FormulaForge",
-      "private": true
+      "repo": "FormulaForge"
     },
     "mac": {
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "identity": null
     },
     "win": {
