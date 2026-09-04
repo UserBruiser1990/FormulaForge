@@ -16,7 +16,7 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 pkgbuild \
   --component "$APP_PATH" \
   --install-location /Applications \
-  --scripts "$ROOT_DIR/scripts" \
+  --scripts "$ROOT_DIR/scripts/pkg" \
   --identifier com.formulaforge.ai \
   --version "$VERSION" \
   "$OUTPUT_PATH"
