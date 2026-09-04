@@ -8,6 +8,7 @@ backend/dist/
 # Node
 frontend/node_modules/
 frontend/dist/
+frontend/dist/*.pkg
 
 # macOS
 .DS_Store

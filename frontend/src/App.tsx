@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 
-const API_URL = "http://localhost:8000";
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 type Mode = "generate" | "explain" | "fix" | "vba" | "power-query";
 
 function App() {

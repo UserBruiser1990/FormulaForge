@@ -1,0 +1,17 @@
+#!/bin/bash
+set -eu
+
+APP_PATH="/Applications/FormulaForge AI.app"
+
+if [ ! -d "$APP_PATH" ]; then
+  echo "FormulaForge AI was not installed at $APP_PATH" >&2
+  exit 1
+fi
+
+# Intune is the managed trust boundary for this unsigned pilot build.
+/usr/bin/xattr -dr com.apple.quarantine "$APP_PATH" || {
+  echo "Unable to clear quarantine from $APP_PATH" >&2
+  exit 1
+}
+
+exit 0
