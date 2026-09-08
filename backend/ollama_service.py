@@ -1,10 +1,13 @@
 import re
+import os
 
 import requests
 
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3.1:8b"
+LOCAL_AI_URL = os.getenv("FORMULAFORGE_AI_URL", OLLAMA_URL)
+LOCAL_AI_MODEL = os.getenv("FORMULAFORGE_AI_MODEL", OLLAMA_MODEL)
 
 
 def _clean_code(response: str) -> str:
@@ -16,6 +19,44 @@ class OllamaServiceError(RuntimeError):
     """Raised when Ollama cannot generate a response."""
 
 
+def _generate(request_prompt: str) -> str:
+    try:
+        if LOCAL_AI_URL.endswith("/api/generate"):
+            response = requests.post(
+                LOCAL_AI_URL,
+                json={"model": LOCAL_AI_MODEL, "prompt": request_prompt, "stream": False},
+                timeout=120,
+            )
+        else:
+            response = requests.post(
+                f"{LOCAL_AI_URL.rstrip('/')}/chat/completions",
+                json={
+                    "model": LOCAL_AI_MODEL,
+                    "messages": [{"role": "user", "content": request_prompt}],
+                    "temperature": 0.1,
+                    "stream": False,
+                },
+                timeout=120,
+            )
+        response.raise_for_status()
+        result = response.json()
+    except requests.RequestException as exc:
+        raise OllamaServiceError("Unable to connect to Ollama or the local AI runtime.") from exc
+    except ValueError as exc:
+        raise OllamaServiceError("The local AI runtime returned invalid JSON.") from exc
+
+    if LOCAL_AI_URL.endswith("/api/generate"):
+        generated_text = result.get("response")
+    else:
+        choices = result.get("choices")
+        generated_text = choices[0].get("message", {}).get("content") if choices else None
+
+    if not isinstance(generated_text, str) or not generated_text.strip():
+        raise OllamaServiceError("The local AI runtime returned an empty response.")
+
+    return generated_text.strip()
+
+
 def generate_formula(prompt: str) -> str:
     """Send a formula request to Ollama and return the generated text."""
     request_prompt = (
@@ -24,28 +65,7 @@ def generate_formula(prompt: str) -> str:
         f"User request: {prompt}"
     )
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": request_prompt,
-                "stream": False,
-            },
-            timeout=120,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except requests.RequestException as exc:
-        raise OllamaServiceError("Unable to connect to Ollama.") from exc
-    except ValueError as exc:
-        raise OllamaServiceError("Ollama returned invalid JSON.") from exc
-
-    generated_text = result.get("response")
-    if not isinstance(generated_text, str) or not generated_text.strip():
-        raise OllamaServiceError("Ollama returned an empty response.")
-
-    return generated_text.strip()
+    return _generate(request_prompt)
 
 
 def explain_formula(formula: str) -> str:
@@ -57,24 +77,7 @@ def explain_formula(formula: str) -> str:
         f"Excel formula: {formula}"
     )
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": request_prompt, "stream": False},
-            timeout=120,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except requests.RequestException as exc:
-        raise OllamaServiceError("Unable to connect to Ollama.") from exc
-    except ValueError as exc:
-        raise OllamaServiceError("Ollama returned invalid JSON.") from exc
-
-    explanation = result.get("response")
-    if not isinstance(explanation, str) or not explanation.strip():
-        raise OllamaServiceError("Ollama returned an empty response.")
-
-    return explanation.strip()
+    return _generate(request_prompt)
 
 
 def fix_formula(formula: str) -> str:
@@ -86,24 +89,7 @@ def fix_formula(formula: str) -> str:
         f"Broken Excel formula: {formula}"
     )
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": request_prompt, "stream": False},
-            timeout=120,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except requests.RequestException as exc:
-        raise OllamaServiceError("Unable to connect to Ollama.") from exc
-    except ValueError as exc:
-        raise OllamaServiceError("Ollama returned invalid JSON.") from exc
-
-    corrected_formula = result.get("response")
-    if not isinstance(corrected_formula, str) or not corrected_formula.strip():
-        raise OllamaServiceError("Ollama returned an empty response.")
-
-    return corrected_formula.strip()
+    return _generate(request_prompt)
 
 
 def generate_vba(prompt: str) -> str:
@@ -114,24 +100,7 @@ def generate_vba(prompt: str) -> str:
         f"User request: {prompt}"
     )
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": request_prompt, "stream": False},
-            timeout=120,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except requests.RequestException as exc:
-        raise OllamaServiceError("Unable to connect to Ollama.") from exc
-    except ValueError as exc:
-        raise OllamaServiceError("Ollama returned invalid JSON.") from exc
-
-    code = result.get("response")
-    if not isinstance(code, str) or not code.strip():
-        raise OllamaServiceError("Ollama returned an empty response.")
-
-    return _clean_code(code)
+    return _clean_code(_generate(request_prompt))
 
 
 def generate_power_query(prompt: str) -> str:
@@ -142,21 +111,4 @@ def generate_power_query(prompt: str) -> str:
         f"User request: {prompt}"
     )
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": request_prompt, "stream": False},
-            timeout=120,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except requests.RequestException as exc:
-        raise OllamaServiceError("Unable to connect to Ollama.") from exc
-    except ValueError as exc:
-        raise OllamaServiceError("Ollama returned invalid JSON.") from exc
-
-    code = result.get("response")
-    if not isinstance(code, str) or not code.strip():
-        raise OllamaServiceError("Ollama returned an empty response.")
-
-    return _clean_code(code)
+    return _clean_code(_generate(request_prompt))

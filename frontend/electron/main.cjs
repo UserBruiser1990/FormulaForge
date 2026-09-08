@@ -4,8 +4,9 @@ const { execFile, spawn } = require("node:child_process");
 const { autoUpdater } = require("electron-updater");
 
 let backendProcess;
+let bundledAiProcess;
 let mainWindow;
-const OLLAMA_MODEL = "llama3.1:8b";
+const BUNDLED_MODEL = "qwen2.5-3b-instruct-q4_k_m.gguf";
 
 function backendCommand() {
   if (app.isPackaged) {
@@ -16,14 +17,42 @@ function backendCommand() {
   return join(__dirname, "../../backend/venv/bin/uvicorn");
 }
 
-function startBackend() {
+function startBundledAi() {
+  const runtimeName = process.platform === "win32" ? "llama-server.exe" : "llama-server";
+  const runtimePath = app.isPackaged
+    ? join(process.resourcesPath, "bundled-ai", runtimeName)
+    : join(__dirname, "../../bundled-ai", runtimeName);
+  const modelPath = app.isPackaged
+    ? join(process.resourcesPath, "bundled-ai", BUNDLED_MODEL)
+    : join(__dirname, "../../bundled-ai", BUNDLED_MODEL);
+
+  if (!require("node:fs").existsSync(runtimePath) || !require("node:fs").existsSync(modelPath)) {
+    return null;
+  }
+
+  bundledAiProcess = spawn(
+    runtimePath,
+    ["--model", modelPath, "--host", "127.0.0.1", "--port", "11435", "--ctx-size", "4096"],
+    { cwd: join(runtimePath, ".."), stdio: "ignore" },
+  );
+  bundledAiProcess.on("error", (error) => {
+    dialog.showErrorBox("FormulaForge AI runtime could not start", error.message);
+  });
+  return "http://127.0.0.1:11435/v1";
+}
+
+function startBackend(aiUrl) {
   const command = backendCommand();
   const args = app.isPackaged
     ? []
     : ["main:app", "--host", "127.0.0.1", "--port", "8000"];
   const cwd = app.isPackaged ? process.resourcesPath : join(__dirname, "../../backend");
 
-  backendProcess = spawn(command, args, { cwd, stdio: "ignore" });
+  backendProcess = spawn(command, args, {
+    cwd,
+    stdio: "ignore",
+    env: { ...process.env, ...(aiUrl ? { FORMULAFORGE_AI_URL: aiUrl, FORMULAFORGE_AI_MODEL: "local-model" } : {}) },
+  });
   backendProcess.on("error", (error) => {
     dialog.showErrorBox(
       "FormulaForge backend could not start",
@@ -57,26 +86,33 @@ function hasModel(modelList) {
 }
 
 async function ensureOllama() {
+  if (bundledAiProcess) {
+    return;
+  }
+  const ollamaModel = "llama3.1:8b";
   try {
     const models = await runOllama(["list"]);
-    if (hasModel(models)) {
+    if (models
+      .split("\n")
+      .slice(1)
+      .some((line) => line.trim().split(/\s+/)[0] === ollamaModel)) {
       return;
     }
 
     await dialog.showMessageBox({
       type: "info",
       title: "Downloading FormulaForge model",
-      message: `The ${OLLAMA_MODEL} model is not installed.`,
+      message: `The ${ollamaModel} model is not installed.`,
       detail: "FormulaForge will download it now. This is only needed once and requires approximately 5 GB of storage.",
       buttons: ["Download"],
       defaultId: 0,
     });
-    await runOllama(["pull", OLLAMA_MODEL]);
+    await runOllama(["pull", ollamaModel]);
   } catch (error) {
     const result = await dialog.showMessageBox({
       type: "warning",
       title: "Ollama setup required",
-      message: "FormulaForge needs Ollama and the llama3.1:8b model to generate results.",
+      message: "FormulaForge needs a local AI runtime to generate results.",
       detail: error.message,
       buttons: ["Open Ollama Download", "Continue"],
       defaultId: 0,
@@ -154,7 +190,8 @@ ipcMain.handle("install-update", () => {
 });
 
 app.whenReady().then(() => {
-  startBackend();
+  const aiUrl = startBundledAi();
+  startBackend(aiUrl);
   createWindow();
   configureUpdater();
   ensureOllama();
@@ -162,6 +199,7 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
   backendProcess?.kill();
+  bundledAiProcess?.kill();
 });
 
 app.on("window-all-closed", () => {

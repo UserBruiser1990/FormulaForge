@@ -9,6 +9,8 @@ backend/dist/
 frontend/node_modules/
 frontend/dist/
 frontend/dist/*.pkg
+bundled-ai/*
+!bundled-ai/README.md
 
 # macOS
 .DS_Store

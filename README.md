@@ -78,3 +78,20 @@ The desktop app checks the public GitHub Releases feed when **Check for updates*
 is clicked. If a newer release is found, the app downloads it and offers a
 restart to install. Releases must be created with matching macOS and Windows
 installer assets. The browser development build does not perform update checks.
+
+## Bundled offline AI (planned desktop profile)
+
+The desktop shell can start a bundled `llama.cpp` server and a local Qwen 2.5
+3B Instruct GGUF model when those assets are present in `bundled-ai/`. This
+removes the Ollama prerequisite and keeps prompts on the device. The assets are
+large and platform-specific, so they are not stored in Git.
+
+To prepare the model asset:
+
+```sh
+./scripts/download-bundled-ai.sh
+```
+
+The macOS and Windows installers must be built separately with their matching
+`llama-server` runtime and the model included as installer resources. Until
+those assets are added, packaged builds continue to use Ollama.
