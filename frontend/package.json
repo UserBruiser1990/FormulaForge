@@ -41,6 +41,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "../bundled-ai",
+        "to": "bundled-ai",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "publish": {

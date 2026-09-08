@@ -95,3 +95,16 @@ To prepare the model asset:
 The macOS and Windows installers must be built separately with their matching
 `llama-server` runtime and the model included as installer resources. Until
 those assets are added, packaged builds continue to use Ollama.
+
+### Intune package preparation
+
+The platform build scripts validate the required assets before packaging:
+
+```sh
+./scripts/build-intune-macos.sh
+```
+
+On Windows, run `scripts/build-intune-windows.ps1`. Then use Microsoft's Win32
+Content Prep Tool on Windows to convert the generated installer into an
+`.intunewin` file. Do not upload the macOS `.pkg` to Windows or the Windows
+`.intunewin` to macOS.
